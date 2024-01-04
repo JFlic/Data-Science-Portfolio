@@ -6,3 +6,6 @@ The real world problem that I chose was Covid19 cases that have been documented 
 
 In this project exstracted the CSV files from the Our World in Data website https://ourworldindata.org/covid-deaths
 
+I used Microsoft Excel to split the data into seperate Covid Deaths CSV and Covid Vaccinations CSV
+
+Then used sqlite to make databases that I then viualized in Tableau https://public.tableau.com/app/profile/jack.flickinger/viz/CovidDashboard2024/Dashboard1
