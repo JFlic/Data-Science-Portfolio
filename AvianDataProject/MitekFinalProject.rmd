@@ -1,0 +1,372 @@
+---
+title: "Final Project"
+author:  "Jack Flickinger
+date: "2023-12-12"
+output: html_document
+---
+
+## Part 1
+
+loading libraries and  Avain dataset
+```{r pressure, echo=FALSE}
+library(stats)
+library(ggplot2)
+library(factoextra)
+library(corrplot)
+library(cluster)
+
+
+AvianMeasurements = read.csv("AvianMeasurements.csv")
+
+set.seed(3931134)
+
+head(AvianMeasurements)
+str(AvianMeasurements)
+summary(AvianMeasurements)
+```
+
+##Clean data
+```{r Clean data, echo=FALSE}
+AvianMeasurements = AvianMeasurements[complete.cases(AvianMeasurements),]
+str(AvianMeasurements)
+```
+## Determining the Best Value of k using Elbow Plots
+
+```{r Best Value of k, echo=FALSE}
+wss <- sapply(1:Birdr, function(k){kmeans(AvianMeasurements, k, nstart=20, iter.max=15)$tot.withinss})
+plot(1:Birdr, wss, type="b", pch =19, frame=FALSE, xlab="Number of Clusters K", ylab="Total within-clusters sum of squares")
+
+#shows which amount of cluster makes biggest difference
+fviz_nbclust(AvianMeasurements, kmeans, method="wss") + geom_vline(xintercept =3, linetype= 5, col= "darkred")
+
+corrplot(cor(AvianMeasurements))
+corrplot(cor(AvianMeasurements), method="number", type = "lower")
+
+df <- scale(AvianMeasurements)
+```
+I looks to me like the best K-Means is k=3 because in the Optimal number of clusters graph there is a big enough change from 2 to 3 to warrent a k of 3 but not enough of a change to have a k of 4.
+
+
+```{r Heat map, echo=FALSE}
+### Optimum Cluster: Euclidean Distance
+
+set.seed(123)
+
+Birdr <- sample(1:342, 10)
+Birdr1 <- df[Birdr,]
+head(Birdr1)
+
+distE <- dist(Birdr1, method='euclidean')
+
+### Heat Map
+fviz_dist(distE)
+```
+
+## Output of Kmeans
+First I'm going to use k = 3
+```{r cluster map k = 3, echo=FALSE}
+# Lets go by when the fviz_nbclust tells us first
+km.res <- kmeans(df, 3, nstart = 25)
+km.res
+
+km.res$totss
+km.res$betweenss
+
+km.res$betweenss/km.res$totss
+
+#### Including CLusters in AvianMeasurements
+
+df_member <- cbind(AvianMeasurements, cluster = km.res$cluster)
+head(df_member)
+
+fviz_cluster(km.res, data=AvianMeasurements)
+
+fviz_cluster(km.res, data = AvianMeasurements,
+             palette=c("red", "blue", "black", "darkgreen"),
+             ellipse.type = "euclid",
+             star.plot = T,
+             repel = T,
+             ggtheme = theme())
+```
+```{r mean, median, variance, echo=FALSE}
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), mean)
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), median)
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), range)
+```
+
+Now lets try with k = 4
+```{r cluster map k = 4, echo=FALSE}
+
+km.res <- kmeans(df, 4, nstart = 25)
+
+fviz_cluster(km.res, data = AvianMeasurements,
+             palette=c("red", "blue", "black", "darkgreen"),
+             ellipse.type = "euclid",
+             star.plot = T,
+             repel = T,
+             ggtheme = theme())
+```            
+          
+```{r mean, median, variance, echo=FALSE}
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), mean)
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), median)
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), range)
+```
+
+And with k = 2
+
+```{r cluster map k = 4, echo=FALSE}
+km.res <- kmeans(df, 2, nstart = 25)
+
+fviz_cluster(km.res, data = AvianMeasurements,
+             palette=c("red", "blue", "black", "darkgreen"),
+             ellipse.type = "euclid",
+             star.plot = T,
+             repel = T,
+             ggtheme = theme())
+```
+
+```{r mean, median, variance, echo=FALSE}
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), mean)
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), median)
+aggregate(AvianMeasurements, by=list(cluster=df_member$cluster), range)
+```
+
+I think that the best k would be k = 3 because visually looking at the plot
+there seems to be 3 distinct groups of birds and anything more than that. 
+
+
+#Use Hierarchical clustering to group the AvianMeasurements dataset.
+
+```{r libraries, echo=FALSE}
+library(tidyverse)
+```
+
+I decided to use a k = 3 in the dendrograms because it was shown in the clustering that it was the best choice.
+
+#2.
+
+Produce a dendrogram using AGNES
+
+```{r dendrogram, echo=FALSE}
+res.agnes <- agnes(x=AvianMeasurements, stand = TRUE, 
+                   metric = "euclidean", method="ward")
+
+
+fviz_dend(res.hc, cex=0.5)
+```
+# Finding the cophenetic correlation
+```{r cophenetic correlation, echo=FALSE}
+
+### Finding the cophenetic distances (height)
+res.coph <- cophenetic(res.hc)
+
+### Comparing cophenetic distances with original distances
+cor(res.dist, res.coph)
+
+#### Comparing to the linkage method average
+res.hc2 <- hclust(res.dist, method = "average")
+cor(res.dist, cophenetic(res.hc2))
+```
+
+#2c.
+It looks to me like again there are 3 distinct groups that pretain to
+the Avian Dendrogram same as the clustering plot. 
+```{r k = 3, echo=FALSE}
+fviz_dend(res.agnes, cex=0.6, k=3)
+```
+```{r k = 3, echo=FALSE}
+#### Identifying groups
+
+#2d.
+#### Plotting using color
+fviz_dend(res.hc, k=3, cex =0.5, 
+          k_colors =c("#2E9FDF", "#00AFBB", "#E7B800" , "red","green"), 
+          color_labels_by_k = TRUE, rect=TRUE)
+
+```
+
+#### Streamlining the processes: The Cluster package
+```{r k = 3, echo=FALSE}
+res.agnes <- agnes(x=AvianMeasurements, stand = TRUE, 
+                   metric = "euclidean", method="ward")
+
+res.diana <- diana(x=AvianMeasurements, stand = TRUE, 
+                   metric = "euclidean")
+```
+
+
+```{r k = 3, echo=FALSE}
+fviz_dend(res.agnes, cex=0.6, k=3)
+```
+AGNES has a lot branches towards the bottom but three main branches
+that those branchs from the bottom come from.
+
+AGNES shows that there are basically three main groups that every bird in the data set
+can go into.
+
+```{r DIANA, echo=FALSE}
+fviz_dend(res.diana, cex=0.6, k=3)
+```
+DIANA has a much more branches towards the top. 
+
+DIANA shows that the green group is actually a very small group
+that has a slight similarity to the red group
+
+DIANA shows a much more specific subgroups of the main three groups but if you didn't know that k = 3 it would be harder to tell what k was. 
+
+# Part 1 Summarized
+I think that the most satisfying model was the clustering model just
+because it looked a lot cleaner with all the data points rather than the 
+deprograms.
+
+
+# Part 2
+
+```{r Libraries, echo=FALSE}
+library(tidyverse)
+library(ipred)
+library(rpart)
+library(adabag)
+library(caTools)
+set.seed(123)
+```
+
+#1 Divide the data into a test a train set (70/30).
+
+```{r train test, echo=FALSE}
+abalone = read.csv("abalone.csv")
+names(abalone) <- c("Sex", "Length", "Diameter", "Height", "Wholeweight", "Shuckedweight", "Visceraweight", "Shellweight", "rings")
+
+abalone$Sex <- as.factor(abalone$Sex)
+
+split <- sample.split(abalone$Sex, SplitRatio = 0.7)
+train_data <- abalone[split, ]  
+test_data <- abalone[split, ]
+
+train_data$Sex <- as.factor(train_data$Sex)
+
+test_data$Sex <- as.factor(test_data$Sex)
+```
+Splitting 70/30
+
+#2.
+Bagging
+
+# Install packages
+
+```{r packages, echo=FALSE}
+library(rpart)
+install.packages("adabag")
+library(adabag)
+
+formula <- Sex ~ .
+
+```
+
+```{r Variable check, echo=FALSE}
+vardep <- abalone[, as.character(formula[[2]])]
+cntrl <-rpart.control(maxdepth=2, minsplit = 1, cp = -1)
+
+abalone.bagging <- bagging(formula = formula, 
+                           data = train,
+                           mfinal = 10,
+                           control = cntrl)
+abalone.bagging
+
+abalone.bagging$samples[,1]
+summary(as.factor(abalone.bagging$samples[,1]))
+importanceplot(abalone.bagging, horiz=FALSE)
+abalone.bagging$importance
+```
+It looks like Visceraweight is the variable that has the most correlation with sex
+
+#Training
+
+```{r training, echo=FALSE}
+table(abalone.bagging$class, abalone$Sex[train_data$Sex], dnn=c("Predicted class", "Observed class"))
+
+```
+#Test set
+```{r testing, echo=FALSE}
+abalone.prebagging <- predict.bagging(abalone.bagging, newdata =abalone[-train$Sex,])
+
+abalone.baggingcv <- bagging.cv(Sex ~. , v=10, data=abalone, mfinal=10,
+                             control=rpart.control(maxdepth=1))
+abalone.baggingcv
+```
+#3.
+#Boosting 
+```{r Variable check, echo=FALSE}
+abalone.adaboost <- boosting(formula = formula, 
+                           data = train,
+                           mfinal = 10,
+                           control = cntrl)
+abalone.adaboost
+
+importanceplot(abalone.adaboost, horiz=FALSE)
+```
+
+Visceraweight is also the the variable that has the most correlation with sex in boosting as well
+
+# Training Error
+```{r Train, echo=FALSE}
+table(abalone.adaboost$class, abalone$Sex[train$Sex], dnn=c("Predicted Class", "Observed Class"))
+1-sum(abalone.adaboost$class == abalone$Sex[train$Sex])/length(abalone$Sex[train$Sex])
+```
+#Test error
+### Boosting Error by cv
+```{r Test, echo=FALSE}
+abalone.boostcv <- boosting.cv(Sex~., v=10, data=abalone, mfinal=10,
+                            control = rpart.control(maxdepth=1))
+abalone.boostcv
+```
+#4.
+# Random Forest
+
+```{r Sort data, echo=FALSE}
+
+abalone$Sex <- as.factor(abalone$Sex)
+data <-  abalone %>% 
+  mutate(set = ifelse(runif(nrow(.)) > 0.70, "test", "train"))
+train <- data %>% filter(set == "train") %>% select(-set)
+test <- data %>% filter(set == "test") %>% select(-set)
+```
+
+# Quick inspection of the data set
+```{r inspection, echo=FALSE}
+glimpse(data)
+```
+
+## Measure the prediction error
+Set our function
+```{r inspection, echo=FALSE}
+rmse <- function(x) sqrt(sum((x - test$Sex)^2))
+```
+
+## Random Forest
+There is a library called randomForest but ranger is faster
+```{r ranger, echo=FALSE}
+library(ranger)
+```
+
+# only one tree
+
+```{r one Tree, echo=FALSE}
+pred_rf_first <- predict(first_rf, test)$predictions
+
+first_rf
+```
+
+# Make some predictons using the test set
+```{r one Tree, echo=FALSE}
+first_rf_test <- ranger(Sex ~ Length + Diameter + Height + Wholeweight
+                   + Shuckedweight + Visceraweight + Shellweight 
+                   + rings , 
+                   num.trees = 1, mtry = 5, data = test)
+first_rf_test
+```
+
+Random forest = 52.33, boosting = 46.38, bagging 53.79 
+On average I would say that random forest is the best out of the three but not good enough were I would say I would
+make a guess off of it. 
